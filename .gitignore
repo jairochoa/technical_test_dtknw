@@ -1,0 +1,14 @@
+# Python & Entornos
+__pycache__/
+*.py[cod]
+.venv/
+env/
+.env
+
+# VS Code / Jupyter
+.vscode/
+.ipynb_checkpoints/
+
+# Datos crudos y temporales (mantener repositorio liviano)
+data/raw/*
+!data/raw/.gitkeep
