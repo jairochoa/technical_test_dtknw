@@ -78,5 +78,9 @@ A las predicciones puntuales de la red LSTM se les acoplará una **Simulación d
 2.  **Escenario Equilibrado (Valor Base):** Es la línea de tendencia central arrojada directamente por el motor de Machine Learning, asumiendo un riesgo moderado.
 3.  **Escenario Pesimista (Límite Superior):** Contempla disrupciones severas en la cadena de suministro o picos inflacionarios. Alineado al estándar de la AACE, este techo establece una reserva financiera que oscila entre un **+30% y un +100%** de incremento sobre el valor base predicho.
 
-## Análisis Exploratorio
+## Análisis Exploratorio de Datos (EDA)
+
+A continuación se muestra la evolución comparativa de las materias primas frente a los equipos en Base 100:
+
+![Evolución de Series Base 100](docs/img/eda_series_base100.png)
 
