@@ -18,43 +18,51 @@ El objetivo de este proyecto es desarrollar una metodología analítica que perm
 
 ## Específicos
 
-    * Realizar un analisis descriptivo de los datos suministrados para conocer el comportamiento de las series de datos
-    * Construir un modelo predictivo base para generar predicciones a corto y mediano plazo
-    * Construir una aplicación sencilla integrada con un agente de IA que pueda dar respuesta a inquietudes del equipo de negocio
+    * Realizar un analisis descriptivo de los datos suministrados para conocer el comportamiento de las series de datos.
+    * Construir un modelo predictivo base para generar predicciones a corto y mediano plazo del precio de los equipos.
+    * Construir una aplicación sencilla integrada con un agente de IA que pueda dar respuesta a inquietudes del área de negocios.
     * Desplegar la aplicación en un servicio de nube.
 
 ## Terminología básica
 
 Para asegurar una correcta interpretación del modelo dentro del entorno de la ingeniería de costos, se definen los siguientes términos:
 
-*   **CAPEX (Capital Expenditure):** Desembolso de capital requerido para adquirir un activo físico (como maquinaria pesada) e integrarlo a la flota de la empresa. Constituye el costo de posesión o inversión inicial antes de que el equipo genere costos operativos en obra.
+*   **CAPEX (Gastos de Capital):** Se refiere a inversiones en activos tangibles o intangibles que aportan valor económico a la empresa durante más de un año. Estos gastos incluyen la compra de maquinaria, vehículos, equipos informáticos, licencias de software perpetuas, reformas significativas en oficinas o desarrollo interno de productos tecnológicos capitalizables.
+*   **OPEX (Gastos Operativos):** Gastos recurrentes del día a día para operar la empresa (ej. luz, salarios, alquiler). Se deducen completamente en el año fiscal actual.
 *   **AACE (AACE International):** La Autoridad Internacional para la Gestión del Costo Total (Total Cost Management). Es el organismo que proporciona las directrices y estándares (Recommended Practices) globales para la ingeniería de costos y presupuestación.
 *   **Clases del AACE:** Es el sistema de clasificación de estimaciones de costos que asocia el nivel de madurez o definición de un proyecto con una metodología de cálculo y un rango de precisión esperado. Las etapas tempranas de planeación corresponden a la **Clase 5** (0% a 2% de definición) y **Clase 4** (1% a 15% de definición), requiriendo métodos paramétricos y estocásticos.
 *   **INPP (Índice Nacional de Precios Productor):** Es un indicador estadístico macroeconómico que mide las variaciones a través del tiempo de los precios de los bienes y servicios que se producen en el país para consumo interno y exportación. En este modelo, funciona como variable de control para identificar la inflación.
 
 ## Investigación del escenario en Construcción
 
-En las fases tempranas de los proyectos, la prevision de los materiales, equipos, alquileres, consumibles, etc son de vital importancia ya que en función de la optimización de estos recursos podrian obtenerse mejores márgenes de ganancia. 
-Cuando se trata de equipamiento, como maquinarias y equipos especializados, comunmente las empresas prefieren alquilar dichos equipos en lugar de comprarlos ya que si bien estos activos pueden ser de una altísima utilidad, tambien es cierto que pasan por los procesos de depreciación naturales, incurren en costos de mantenimiento, transporte, etc. 
-Dependiendo del equipo, estos podrian requerirse de forma permanente en campo por lo que su adquisicón resulta vital para manetener las continuidad en las operaciones.
+En las fases tempranas de los proyectos (Clase 5 y 4), la prevision de los materiales, equipos, alquileres, consumibles, etc son de vital importancia ya que en función de la optimización de estos recursos podrian obtenerse mejores márgenes de ganancia. En un proyecto, cuando se trata de equipamiento, como maquinarias y equipos especializados la clasificación de tales gastos pueden darse en dos escenarios: Si el proyecto es de corto plazo (6 a 12 meses), normalmente los equipos se arriendan y se consideran como OPEX, pues al final del periodo estos equipos y maquinarias no pasarán a formar parte de los activos de la empresa. Sin embargo, si el contrato de alquiler es mayor de 12 meses o incluye una opción de compra al final, las normas contables internacionales como la IFRS 16 obligan a registrarlo en el balance general como un "activo por derecho de uso". En ese caso específico, el tratamiento contable se asemeja al CAPEX porque el activo se deprecia con el tiempo.
 
-La adquisición de maquinaria o equipos de construcción es una decisión estrictamente financiera y operativa. De acuerdo con Solís-Carcaño 2019, los equipos de construcción no tienen un costo de producción estático, sino que están definidos por una estructura de manufactura en la cual los metales y aleaciones base (acero, aluminio, cobre) tienen un gran peso en el valor final. [https://www.redalyc.org/journal/467/46761359008/html/]
+De acuerdo con Solís-Carcaño 2019, los equipos de construcción no tienen un costo de producción estático, sino que están definidos por una estructura de manufactura en la cual los metales y aleaciones base (acero, aluminio, cobre) tienen un gran peso en el valor final [https://www.redalyc.org/journal/467/46761359008/html/]. Por otro lado, de acuerdo con Jiménez-Rodríguez 2022, los precios de los equipos se ven afectados por un mecanismo de transmisión retardado y parcial conocido como el efecto *pass-through* (transferencia de precios). Si los metales suben de precio drásticamente en el mercado global, se generan riesgos críticos de incumplimiento en la cadena de suministro, ya que los fabricantes podrían rescindir los contratos a precio fijo para mejorar sus márgenes de ganancia [https://link.springer.com/article/10.1007/s10290-021-00425-2]. Por lo tanto, en la gestión de proyectos de construcción es una necesidad imperativa estimar y prever de manera sistemática los costos a futuro, permitiendo a los contratistas y dueños planificar el capital a largo plazo y blindar los contratos contra la inflación antes de comprometer los recursos. 
 
-Por otro lado, de acuerdo con Jiménez-Rodríguez 2022, los precios de los equipos se ven afectados por un mecanismo de transmisión retardado y parcial conocido como el efecto *pass-through* (transferencia de precios). Si los metales suben de precio drásticamente en el mercado global, se generan riesgos críticos de incumplimiento en la cadena de suministro, ya que los fabricantes podrían rescindir los contratos a precio fijo para mejorar sus márgenes de ganancia. Por lo tanto, en la gestión de proyectos de construcción es una necesidad imperativa estimar y prever de manera sistemática los costos a futuro, permitiendo a los contratistas y dueños planificar el capital a largo plazo y blindar los contratos contra la inflación antes de comprometer los recursos. 
+Todo lo anterior coincide con la hipótesis que plantea la gerencia del proyecto, es decir: la presunción de que el precio de los equipos está intimamente relacionado con el precio de las materias primas. Como afirma Jiménez-Rodríguez 2022, esto se debe a la transmisión de precios asociados con rezagos o retardos en el tiempo. Esta observación puede desde ya indicarnos, grosso modo, un metodologia para solucionar el problema: determinar si existe una relación de dependencia de las series históricas rezagadas del precio de materias primas con la serie histórica del precio de los equipos.
 
-Lo anterior coincide con la hipótesis que plantea la gerencia del proyecto, es decir, la presunción de que el precio de los equipos está intimamente relacionado con el precio de las materias primas por medio de un mecanismo de transmisión de precios asociados con rezagos o retardos en el tiempo.
+## Sobre los datos
+
+Al realizar una inspección rápida a las fuentes de datos suministradas se observa 5 series históricas de frecuencia diaria (bussiness days: lunes a viernes): Price_X, Price_Y, Price_Z, Price_Equipo1 y Price_Equipo2. La fecha de inicio y finalización corresponden a los dias 2010-01-04 y 2023-08-31 respectivamente.
 
 ## Condiciones iniciales o supuestos
+
 El desarrollo del modelo parte de las siguientes premisas y adecuaciones sobre los datos disponibles:
+
 *   **Frecuencia de datos:** La base de datos original contiene variables históricas a nivel diario (días laborables o *business days*). Para alinear estos datos con los índices macroeconómicos (INPP) y con los mecanismos contractuales de pago, los datos diarios se transforman a frecuencia mensual.
-*   **Alineación temporal:** Se utiliza un agrupamiento mensual con etiqueta de cierre de mes (`M`) para simular las condiciones reales en las que se publican los índices oficiales y para evitar fugas de información (*data leakage*) hacia el algoritmo predictivo.
-*   **Procesamiento de la media:** La mensualización se hace bajo el criterio de promedio del precio ponderado por el tiempo de vigencia, un estándar para asimilar fluctuaciones interdiarias en la construcción.
+*   **Agrupamiento temporal:** Se utiliza un agrupamiento mensual con etiqueta de cierre de mes (`M`) para recrear las condiciones reales en las que se publican los índices oficiales.
+*   **Procesamiento de la media:** La mensualización se hace bajo el criterio de promedio del precio ponderado por el tiempo de vigencia. Esto ayuda a la convergencia de las fluctuaciones interdiarias que se observan en los proyectos de construcción.
+*   **Variables macroeconómicas:** En este ejercicio podrian incorporarse variables adicionales como el indice de precios al productor IPP. Al conocer la referenciación geográfica del proyecto, podria sumarse como variable de ajuste a la predicción del precio del equipo.  
+
 
 ## Metodología analítica
-La estrategia analítica del modelo se compone de dos etapas principales: filtrado de ruido económico y modelado profundo de series de tiempo.
+
+La estrategia analítica del modelo se compone de dos etapas principales: analisis exploratorio de las series (transformación y filtrado de ruido económico) y análisis y modelado de las series de tiempo.
 
 1.  **Filtrado con Análisis Wavelet (WTC y PWC):** Para descubrir las relaciones de adelanto y retraso (lead-lag) entre los insumos (X, Y, Z) y el costo del equipo, se utiliza el análisis de tiempo-frecuencia. Se aplica fundamentalmente la Coherencia Wavelet Parcial (PWC) introduciendo el **INPP** como variable macroeconómica. Esto permite aislar y descontar matemáticamente el efecto de la inflación general del mercado, asegurando que las materias primas elegidas como características (*features*) explican verdaderamente la variabilidad del costo del equipo, y no son solo ruido económico.
-2.  **Modelado Predictivo con Machine Learning:** Una vez depuradas las variables explicativas, la base de datos se divide en conjuntos de entrenamiento, validación y prueba (*train/validation/test*). Se implementa una red neuronal profunda de memoria a corto y largo plazo (**LSTM**), la cual ha demostrado empíricamente superar a los modelos tradicionales (como ARIMA) hasta en un 59% de exactitud al predecir series temporales de la industria de la construcción. 
+2. **Analisis de Causalidad de Granger:** Este método evalua si una serie de tiempo ayuda a predecir otra. Sin embargo, es preciso aclarar que no se trata de una causalidad real, pero sirve como marco de referencia. Esta prueba se sigue a un modelo de vectores autorregresivos VAR, los cuales no son mas que un sistema de ecuaciones multivariantes que permiten analizar la dinámica conjunta de varias series temporales, explicando cada variable por sus propios rezagos y los de las demás variables del sistema.
+3.  **Modelado Predictivo con Machine Learning:** Una vez depuradas y/o elegidas las variables explicativas y eliminando el ruido, la base de datos se divide en conjuntos de entrenamiento, validación y prueba (*train/validation/test*). Se implementa una red neuronal profunda de memoria a corto y largo plazo (**LSTM**), la cual ha demostrado empíricamente superar a los modelos tradicionales (como ARIMA) hasta en un 59% de exactitud al predecir series temporales de la industria de la construcción (Boge Lyu & Qianye Yin & Iris Denise Tommelein & Hanyang Liu & Karnamohit Ranka & Karthik Yeluripati & Junzhe Shi, 2025) [https://ideas.repec.org/p/arx/papers/2512.09360.html]. Evidentemente, al tratarse de datos cronológicos, la separación de los conjuntos (train/validation/test) debe hacerse manteniendo el orden del tiempo.
+
 
 ## Predicción
 Con el modelo LSTM entrenado, se proyectará el comportamiento del CAPEX del equipo bajo los siguientes marcos de acción:
@@ -68,4 +76,4 @@ Al estar en fases tempranas de planeación, el modelo incorpora la incertidumbre
 A las predicciones puntuales de la red LSTM se les acoplará una **Simulación de Montecarlo** para generar distribuciones probabilísticas que proyecten la variabilidad del costo de adquisición. Se establecerán tres intervalos clave orientados a la toma de decisiones con un nivel de confianza del 80%:
 1.  **Escenario Optimista (Límite Inferior):** Representa una posible deflación en el costo de los insumos o una alta economía de escala. Se asocia al rango bajo típico de una estimación Clase 5 (aprox. **-20% a -50%** del valor base).
 2.  **Escenario Equilibrado (Valor Base):** Es la línea de tendencia central arrojada directamente por el motor de Machine Learning, asumiendo un riesgo moderado.
-3.  **Escenario Pesimista (Límite Superior):** Contempla disrupciones severas en la cadena de suministro o picos inflacionarios. Alineado al estándar de la AACE, este techo establece una reserva financiera precautoria que oscila entre un **+30% y un +100%** de incremento sobre el valor base predicho.
+3.  **Escenario Pesimista (Límite Superior):** Contempla disrupciones severas en la cadena de suministro o picos inflacionarios. Alineado al estándar de la AACE, este techo establece una reserva financiera que oscila entre un **+30% y un +100%** de incremento sobre el valor base predicho.
