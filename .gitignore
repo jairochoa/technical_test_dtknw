@@ -1,14 +1,21 @@
-# Python & Entornos
+.venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
-.venv/
-env/
-.env
+*$py.class
 
-# VS Code / Jupyter
 .vscode/
 .ipynb_checkpoints/
 
-# Datos crudos y temporales (mantener repositorio liviano)
+.env
+*.env
+
 data/raw/*
 !data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+.DS_Store
+Thumbs.db
+*.log
