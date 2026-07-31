@@ -43,7 +43,7 @@ Todo lo anterior coincide con la hipótesis que plantea la gerencia del proyecto
 
 ## Sobre los datos
 
-Al realizar una inspección rápida a las fuentes de datos suministradas se observa 5 series históricas de frecuencia diaria (bussiness days: lunes a viernes): Price_X, Price_Y, Price_Z, Price_Equipo1 y Price_Equipo2. La fecha de inicio y finalización corresponden a los dias 2010-01-04 y 2023-08-31 respectivamente.
+Al realizar una inspección rápida a las fuentes de datos suministradas se observan 5 series históricas de frecuencia diaria (bussiness days: lunes a viernes): **Price_X**, **Price_Y**, **Price_Z**, **Price_Equipo1** y **Price_Equipo2**. La fecha de inicio y finalización corresponden a los dias 2010-01-04 y 2023-08-31 respectivamente.
 
 ## Condiciones iniciales o supuestos
 
@@ -77,3 +77,6 @@ A las predicciones puntuales de la red LSTM se les acoplará una **Simulación d
 1.  **Escenario Optimista (Límite Inferior):** Representa una posible deflación en el costo de los insumos o una alta economía de escala. Se asocia al rango bajo típico de una estimación Clase 5 (aprox. **-20% a -50%** del valor base).
 2.  **Escenario Equilibrado (Valor Base):** Es la línea de tendencia central arrojada directamente por el motor de Machine Learning, asumiendo un riesgo moderado.
 3.  **Escenario Pesimista (Límite Superior):** Contempla disrupciones severas en la cadena de suministro o picos inflacionarios. Alineado al estándar de la AACE, este techo establece una reserva financiera que oscila entre un **+30% y un +100%** de incremento sobre el valor base predicho.
+
+## Análisis Exploratorio
+
