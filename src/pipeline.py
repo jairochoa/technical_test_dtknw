@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
+from sklearn.base import clone
 from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.metrics import (
     mean_absolute_error,
@@ -122,7 +123,10 @@ def orquestar_pipeline(
         nombre_ganador = ""
         metricas_ganador = {}
 
-        for nombre, modelo in MODELOS_CANDIDATOS.items():
+        for nombre, modelo_base in MODELOS_CANDIDATOS.items():
+            modelo = clone(
+                modelo_base
+            )
             mape_cv = validacion_cruzada_ts(modelo, X_tr, y_tr)
             modelo.fit(X_tr, y_tr)
             preds = modelo.predict(X_te)
