@@ -1,0 +1,19 @@
+from pathlib import Path
+
+# Rutas del proyecto
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_RAW_DIR = BASE_DIR / "data" / "raw"
+DATA_PROCESSED_DIR = BASE_DIR / "data" / "processed"
+
+
+# Nombres de archivos
+
+RAW_FILES = {
+    "historico": "historico_equipos.csv",
+    "X": "X.csv",
+    "y": "y.csv",
+    "Z": "Z.csv",
+}
+
+API_KEY = "AQ.Ab....."

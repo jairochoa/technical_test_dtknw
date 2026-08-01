@@ -277,8 +277,30 @@ Dentro de las observaciones y mejoras puedo proponer:
 - Implementar un mayor pool de modelos y variaciones. Si bien los modelos que se entrenaron produjeron métricas bastante eficientes y no sobreajustadas (el MAPE se calculó sobre el 30% del conjunto de prueba), es posible hallar modelos incluso superiores.
 - Es probable que X, Y y Z son metales como acero, cobre o aluminio y los equipos podrian ser algún tipo de herramienta especializada fundamentada en esos metales.
 - Este ejercicio no comtempló una rutina de reentrenamiento, pero es necesario disponer de un tablero de control para la gerencia y el equipo de analítica para monitorear el desempeño de tales. Del mismo modo se hace necesaria la creación de alertas tempranas que muestren posibles desvios presupuestales con antelación.
+- Este proyecto usó la API de Google cuya API_KEY se puede crear gratuitamente de https://aistudio.google.com/
 
 
 # Agradecimiento
 
 Quiero agradecer al equipo de DataKnow por la oportunidad de presentar este reto.
+
+# ¿Como ejecutar el código?
+
+## ⚙️ Configuración de Variables de Entorno
+
+Para ejecutar la aplicación localmente, el evaluador requiere una clave de API de **Google AI Studio** (Capa gratuita de Gemini).
+
+1. Clonar el repositorio e instalar las dependencias:
+   ```bash
+   git clone https://github.com/jairochoa/technical_test_dtknw.git
+   cd prediccion-costos-construccion
+   pip install -r requirements.txt
+
+2. Configurar la API Key de Gemini:
+
+    - Copiar el archivo de plantilla src/config.py.example y renómbralo a src/config.py:
+    - Abrir src/config.py y reemplaza "TU_API_KEY_AQUI_DE_GOOGLE_AI_STUDIO" por tu clave de API de Gemini.
+    (Nota: También puedes definir la variable de entorno del sistema export API_KEY="tu_key" o usar .env).
+
+3. Ejecutar la aplicación con:
+    - streamlit run app/streamlit_app.py
