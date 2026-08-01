@@ -11,8 +11,10 @@ import pandas as pd
 # ==============================================================================
 # 1. CONFIGURACIÓN DE RUTAS Y DATOS BASE
 # ==============================================================================
-DIR_MODELS = Path(__file__).resolve().parent / "models" / "production"
-PATH_DATOS = Path(__file__).resolve().parent / "data" / "processed" / "df_mensual.parquet"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+DIR_MODELS = ROOT_DIR / "models" / "production"
+PATH_DATOS = ROOT_DIR / "data" / "processed" / "df_mensual.parquet"
 
 
 # ==============================================================================
@@ -27,10 +29,17 @@ except ImportError:
     
 
 def _cargar_paquete(equipo: str):
+    """Carga el pipeline .joblib correspondiente al equipo seleccionado."""
+    # Construcción dinámica de la ruta usando DIR_MODELS:
     ruta_pipeline = DIR_MODELS / f"pipeline_{equipo}.joblib"
-    paquete = joblib.load(ruta_pipeline)
-    df_base = pd.read_parquet(PATH_DATOS)
-    return paquete, df_base
+
+    # Verificación de seguridad antes de intentar cargar
+    if not ruta_pipeline.exists():
+        raise FileNotFoundError(
+            f"❌ No se encontró el modelo para '{equipo}' en:\n{ruta_pipeline}"
+        )
+
+    return joblib.load(ruta_pipeline)
 
 
 # ==============================================================================
@@ -48,7 +57,8 @@ def tool_simular_pronostico(
     para el equipo indicado ('Price_Equipo1' o 'Price_Equipo2'), aplicando shocks en USD
     a los insumos. Retorna los precios esperados y el intervalo de confianza al 95%.
     """
-    paquete, df_hist = _cargar_paquete(equipo)
+    paquete = _cargar_paquete(equipo)
+    df_hist = pd.read_parquet(PATH_DATOS)
     ultimo_precio = df_hist[equipo].iloc[-1]
     fechas = pd.date_range(
         start=df_hist.index[-1] + pd.DateOffset(months=1),
@@ -130,31 +140,68 @@ def tool_simular_pronostico(
 
 @tool
 def tool_consultar_auditoria(equipo: str) -> str:
-    """Retorna métricas de evaluación out-of-sample (MAPE, RMSE) y los pesos o
+    """Consulta las métricas de precisión (MAPE Ajustado, RMSE) y detalles de auditoría del modelo econométrico de un equipo."""
+    try:
+        paquete = _cargar_paquete(equipo)
 
-    importancia de las variables de compra (coeficientes) del modelo entrenado.
-    """
-    paquete, _ = _cargar_paquete(equipo)
-    residuos = paquete["y_test"] - paquete["preds_test"]
-    rmse = np.sqrt(np.mean(residuos**2))
-    mape = np.mean(np.abs(residuos / paquete["y_test"])) * 100
+        if isinstance(paquete, dict):
+            # 1. Buscamos primero si el MAPE ajustado ya viene guardado con llaves del Notebook 2
+            mape = (
+                paquete.get("mape_adj")
+                or paquete.get("mape_ajustado")
+                or paquete.get("mape_niveles")
+                or paquete.get("mape")
+                or paquete.get("MAPE")
+            )
+            rmse = (
+                paquete.get("rmse")
+                or paquete.get("RMSE")
+                or paquete.get("rmse_test")
+            )
 
-    modelo = paquete["modelo_obj"]
-    if hasattr(modelo, "coef_"):
-        importancias = pd.Series(
-            modelo.coef_, index=paquete["feature_names"]
-        ).sort_values(key=abs, ascending=False)
-    else:
-        importancias = pd.Series(
-            modelo.feature_importances_, index=paquete["feature_names"]
-        ).sort_values(ascending=False)
+            # 2. Si no está como llave, calculamos el MAPE AJUSTADO EN NIVELES usando el historial
+            if (
+                mape is None or rmse is None
+            ) and "y_test" in paquete and "preds_test" in paquete:
+                y_t = np.array(paquete["y_test"])
+                y_p = np.array(paquete["preds_test"])
+                error_absoluto = np.abs(y_t - y_p)
 
-    return (
-        f"Auditoria para {equipo} ({paquete['modelo_nombre']}):\n"
-        f"- RMSE en Test: ${rmse:.2f} USD\n"
-        f"- MAPE en Test: {mape:.2f}%\n"
-        f"- Top 4 Variables de Impacto:\n{importancias.head(4).to_string()}"
-    )
+                if mape is None:
+                    # Cargamos el historial para obtener el nivel medio real del precio (denominador en niveles)
+                    df_hist = pd.read_parquet(PATH_DATOS)
+                    precio_nivel_medio = df_hist[equipo].mean()
+
+                    # MAPE Ajustado = (Error en delta / Precio en niveles) * 100
+                    mape_calc = np.mean(error_absoluto / precio_nivel_medio) * 100
+                    mape = f"{mape_calc:.2f}% (Ajustado en niveles)"
+
+                if rmse is None:
+                    rmse_calc = np.sqrt(np.mean((y_t - y_p) ** 2))
+                    rmse = f"{rmse_calc:.2f} USD"
+
+            # Formateamos los valores finales para el agente
+            mape_str = (
+                f"{mape:.2f}%"
+                if isinstance(mape, (int, float))
+                else str(mape)
+            )
+            rmse_str = (
+                f"{rmse:.2f}" if isinstance(rmse, (int, float)) else str(rmse)
+            )
+
+            return (
+                f"📊 Auditoría Econométrica para {equipo}:\n"
+                f"- MAPE Ajustado (Error Porcentual en Niveles): {mape_str}\n"
+                f"- RMSE (Raíz del Error Cuadrático Medio): {rmse_str}\n"
+                f"- Total de variables predictoras: {len(paquete.get('feature_names', []))}"
+            )
+
+        else:
+            return f"El archivo cargado para {equipo} es de tipo {type(paquete).__name__}."
+
+    except Exception as e:
+        return f"Error al consultar auditoría de {equipo}: {str(e)}"
 
 
 # ==============================================================================
@@ -167,19 +214,44 @@ def tool_buscar_noticias_mercado(consulta: str) -> str:
     materias primas (acero, cemento, insumos Z, X, Y), maquinaria pesada o el sector de renting.
     """
     search_run = DuckDuckGoSearchRun()
-    return search_run.invoke(consulta)
+    resultado = search_run.invoke(consulta)
+    return resultado[:1000]
 
 
 # ==============================================================================
 # 4. ORQUESTADOR DEL AGENTE COGNITIVO
 # ==============================================================================
+def _obtener_api_key():
+    """Busca la clave en variables de entorno o en src/config.py de forma robusta."""
+    # 1. Primero busca si ya está en las variables de entorno del sistema o de Streamlit Cloud
+    key = os.getenv("API_KEY") or os.getenv("API_KEY")
+    if key:
+        return key
+
+    # 2. Si no está en el entorno, intenta leerla desde el archivo local src/config.py
+    try:
+        from src.config import API_KEY as local_key
+
+        return local_key
+    except (ImportError, AttributeError):
+        return None
+
+
 def crear_agente_mercado():
-    # Usamos gemini-1.5-flash por su velocidad y bajo consumo
+    api_key_activa = _obtener_api_key()
+
+    if not api_key_activa:
+        raise ValueError(
+            "No se encontró la API_KEY ni en variables de entorno ni en src/config.py"
+        )
+
+    # Usamos el parámetro moderno 'api_key' y le pasamos la clave detectada
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-3.6-flash",
         temperature=0.2,
-        google_api_key=os.getenv("API_KEY"),
+        api_key=api_key_activa,  # <-- 'api_key' en lugar de 'google_api_key'
     )
+
     herramientas = [
         tool_simular_pronostico,
         tool_consultar_auditoria,
@@ -198,6 +270,4 @@ def crear_agente_mercado():
     4. Explica siempre tus conclusiones ejecutivamente: contrasta los números del modelo estacionario con los hallazgos de la web.
     """
 
-    return create_react_agent(
-        llm, tools=herramientas, state_modifier=prompt_sistema
-    )
+    return create_react_agent(llm, tools=herramientas, prompt=prompt_sistema)

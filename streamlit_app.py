@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from app.agent import crear_agente_mercado
 
 # ==============================================================================
 # 1. CONFIGURACIÓN DE LA PÁGINA Y RUTAS
@@ -44,6 +45,7 @@ equipo_seleccionado = st.sidebar.selectbox(
     "Selecciona el Equipo a Simular:",
     options=["Price_Equipo1", "Price_Equipo2"],
     index=0,
+    key="sidebar_select_equipo",
 )
 
 paquete, df_mensual = cargar_recursos(equipo_seleccionado)
@@ -373,11 +375,23 @@ with tab_agente:
                     "🤖 Percibiendo el entorno, ejecutando modelos e investigando mercado..."
                 ):
                     try:
-                        from app.agent import crear_agente_mercado
 
                         agente = crear_agente_mercado()
                         res = agente.invoke({"messages": [("user", pregunta_usuario)]})
-                        respuesta_texto = res["messages"][-1].content
+                        contenido_crudo = res["messages"][-1].content
+
+                        # 1. Si Gemini devuelve una lista de bloques (formato moderno):
+                        if isinstance(contenido_crudo, list):
+                            # Extraemos solo el valor 'text' de los bloques que lo contengan
+                            fragmentos = [
+                                bloque["text"]
+                                for bloque in contenido_crudo
+                                if isinstance(bloque, dict) and "text" in bloque
+                            ]
+                            respuesta_texto = "\n".join(fragmentos)
+                        # 2. Si devuelve texto plano directo:
+                        else:
+                            respuesta_texto = str(contenido_crudo)
 
                         st.markdown(respuesta_texto)
                         st.session_state["mensajes_chat"].append(
