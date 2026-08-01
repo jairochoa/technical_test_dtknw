@@ -11,10 +11,10 @@ from app.agent import crear_agente_mercado
 # 1. CONFIGURACIÓN DE LA PÁGINA Y RUTAS
 # ==============================================================================
 st.set_page_config(
-    page_title="Simulador de Costos - Maquinaria", page_icon="🏗️", layout="wide"
+    page_title="Simulador de Costos - Equipos de campo", page_icon="🏗️", layout="wide"
 )
 
-st.title("🏗️ Simulador Estratégico de Precios de Maquinaria")
+st.title("🏗️ Simulador Estratégico de Precios de Equipos")
 st.markdown(
     "Herramienta de pronóstico a n meses basada en modelos econométricos estacionarios $I(0)$ y análisis de sensibilidad por shocks de insumos."
 )

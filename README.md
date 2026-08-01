@@ -214,3 +214,71 @@ De acuerdo con los resultados, las variables importantes para cada uno de los eq
 ## Guardado de los modelos ganadores
 
 Para cada uno de los equipos se obtuvo un modelo ganador que se seleccionó a partir de valor MAPE mas pequeño. Todo el artefacto se guardó en el directorio de modelos\producción. Desde alli podrán ser invocados para su consumo, como por ejemplo en la aplicación desarrollada.
+
+
+# Presentación de resultados en un Agente de IA
+
+A los efectos de permitir la interacción del evaluador con el modelo y realizar preguntas sobre
+los resultados obtenidos combinando el pronóstico generado por el modelo con conocimiento externo de mercado, se creó un aplicación de tipo MVP en Streamlit. Dentro de la aplicación, el evaluador podrá interactuar por medio de botones y sliders, acceder a pestañas en las que eligirá horizontes de predicción y podrá preguntar al agente sobre temas relacionados con el modelo, sus características, métricas, entre otras. La forma de acceder a tal aplicación es mediante la ejecución del siguiente comando:
+
+* streamlit run streamlit_app.py 
+
+## Proyección de costos y horizonte de predicción
+
+Como se dijo anteriormente, la aplicación en Streamlit puede mostrar la proyección de costo y los horizontes de prediccion son totalmente customizables. En las siguientes gráficas se puede apreciar la aplicación en funcionamiento.
+
+![Aplicacion1](docs/img/aplicacion_1.png)
+![Aplicacion2](docs/img/aplicacion_2.png)
+![Aplicacion3](docs/img/aplicacion_3.png)
+
+
+##  IA Convencional vs. Agente de IA
+
+Como parte del requisito de este ejercicio, a continuación se explica de forma concreta 
+
+En el estado del arte del desarrollo de software con Inteligencia Artificial, es fundamental trazar una línea clara entre los sistemas predictivos tradicionales y los sistemas agénticos autónomos:
+
+* Sistema de Inteligencia Artificial Convencional (Modelo):
+    - Naturaleza: Es un sistema reactivo y determinista en su inferencia. Recibe un vector de entrada estructurado (features) y aplica una función matemática optimizada (como una regresión Ridge, una red neuronal o un clasificador) para retornar una salida estática (una predicción, una clasificación o un texto generado).
+    - Limitaciones: Carece de intencionalidad propia. No puede decidir cuándo consultar una fuente externa, no tiene memoria de largo plazo sobre el estado de una tarea compleja, y está confinado estrictamente al espacio de los datos con los que fue entrenado.
+    - Ejemplo: Un clasificador de soporte técnico por correo electrónico. Empleando modelos de procesamiento de lenguaje puede remitir a un usuario por el contenido del texto.
+* Agente de IA (Sistema Autónomo):
+    - Naturaleza: Es un sistema dinámico basado en un LLM como "cerebro central", capaz de percibir su entorno, planificar, tomar decisiones autónomas y ejecutar acciones a través de herramientas para cumplir un objetivo específico.
+    - Pilares fundamentales:
+        - Autonomía: El agente no solo espera una orden y responde; evalúa el problema, decide qué pasos tomar y determina si necesita más información antes de dar un veredicto.
+        - Uso de Herramientas (Tool / Function Calling): Posee la capacidad de "salir" de su razonamiento interno para interactuar con sistemas externos (ej. ejecutar código Python de nuestros modelos $I(0)$, consultar bases de datos o realizar búsquedas en tiempo real en la web).
+        - Memoria: Retiene el contexto conversacional y el estado de las simulaciones previas para mantener una línea argumental coherente en múltiples turnos.
+        - Capacidad de Acción (Agency): Puede modificar variables, disparar flujos de trabajo (como recalcular un escenario financiero) y combinar datos cuantitativos internos con contexto cualitativo externo para generar análisis enriquecidos.
+    - Ejemplo: Un Agente de Soporte y Resolución de Incidencias. No solo percibe el contenido del correo sino que tambien puede ejecutar analizar el contexto, realizar acciones, interactuar con el usuario, emplear herramientas, hacer seguimiento. El agente puede actuar de forma proactiva y libre dentro de sus límites.
+
+
+# Arquitectura propuesta en la nube
+
+En este apartado, se muestra una arquitectura mínima que podria funcionar perfectamente a la hora de implementar un sistema de prediccion de precios de equipos en proyectos de construcción, aunque su aplicación podria también derivarse hacia otros proyectos.
+
+Grosso modo, la arquitectura que corre en la nube de Azure es la siguiente:
+
+![Arquitectura](docs/img/arquitectura.svg)
+
+1. En el incio se tiene un área de ingesta y orquestación para alimentar un datafactory que se alimenta de sistemas como ERP, SAP, etc.
+2. Como paso siguiente tenemos un Datalake Gen2 dentro del cual se crea una estructura de datos Medallon (Bronce, Plata y Oro). En cada una de ellas se almacenarán los datos crudos, procesados y de negocio por medio de pipelines automatizados.
+3. En el área de procesamiento y MLOPS, se usa Azure Machine Learning para el entrenamiento de los datos y conectado al servicio de Azure Databricks se muelen los datos que permiten entrenar los modelos dependiendo de su volumen. Para datos de poco volumen bastaria Azure Machine Learning. Evidentemente es importante llevar un registro de modelos candidatos cuyas métricas de desempeño permitiran elegir el mejor. 
+4. En el siguiente bloque está la capa de IA. Aqui se definen e invocan los servicios cognitivos y los microservicios para interactuar con la capa de interaccion con el cliente. Se crean los chatbots o agentes habilitados con herramientas de consulta, busqueda, interacción. 
+5. En esta última capa se encuentran las aplicaciones con las que interactua el usuario y los modelos de lenguaje LLM que sirvan como motor generativo. Aqui se guardan los secretos y llaves de acceso en una bóveda.
+
+
+# Observaciones y mejoras
+
+Este ejercicio me pareció bastante interesante por la forma como fue planteado y por el impacto que tiene cuando se trata de entornos reales, en los que se invierten millones en capital. Ser consciente del papel que tiene el estadístico, el economista, el cientifico de datos, al momento de presentar escenarios de predicción sensibles. Por otro lado, ha sido interesante para recordar algunos conceptos, supuestos y definiciones teóricas que en algunos entornos laborale se dejan de lado.
+
+Dentro de las observaciones y mejoras puedo proponer:
+
+- La inclusión de variables como el INPP. Esta serie podria ayudar a preveer escenarios en los que la variación del precio que reciben los productores podria anticipar el precio de los equipos requeridos en la obra.
+- Implementar un mayor pool de modelos y variaciones. Si bien los modelos que se entrenaron produjeron métricas bastante eficientes y no sobreajustadas (el MAPE se calculó sobre el 30% del conjunto de prueba), es posible hallar modelos incluso superiores.
+- Es probable que X, Y y Z son metales como acero, cobre o aluminio y los equipos podrian ser algún tipo de herramienta especializada fundamentada en esos metales.
+- Este ejercicio no comtempló una rutina de reentrenamiento, pero es necesario disponer de un tablero de control para la gerencia y el equipo de analítica para monitorear el desempeño de tales. Del mismo modo se hace necesaria la creación de alertas tempranas que muestren posibles desvios presupuestales con antelación.
+
+
+# Agradecimiento
+
+Quiero agradecer al equipo de DataKnow por la oportunidad de presentar este reto.
