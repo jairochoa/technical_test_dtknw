@@ -103,8 +103,8 @@ else:
 # ==============================================================================
 # 3. INTERFAZ EN PESTAÑAS (TABS)
 # ==============================================================================
-tab_simulador, tab_auditoria = st.tabs(
-    ["📈 Simulador de Escenarios (varios meses)", "🔍 Auditoría y Coeficientes"]
+tab_simulador, tab_auditoria, tab_agente = st.tabs(
+    ["📈 Simulador de Escenarios (varios meses)", "🔍 Auditoría y Coeficientes", "🤖 Agente de Mercado (AI)",]
 )
 
 # ------------------------------------------------------------------------------
@@ -322,3 +322,66 @@ with tab_auditoria:
             st.dataframe(
                 pesos.to_frame(name="Importancia"), use_container_width=True
             )
+
+# ------------------------------------------------------------------------------
+# TAB 3: AGENTE COGNITIVO DE IA CON MEMORIA Y HERRAMIENTAS
+# ------------------------------------------------------------------------------
+with tab_agente:
+    st.subheader("🤖 Agente Autónomo: Inteligencia Cuantitativa + Mercado")
+    st.markdown(
+        """
+    Este agente de IA **combina de forma autónoma** las simulaciones econométricas del modelo estacionario
+    con búsquedas de contexto económico e industrial en internet para responder tus consultas estratégicas.
+    """
+    )
+
+    # Inicializar historial de conversación en sesión
+    if "mensajes_chat" not in st.session_state:
+        st.session_state["mensajes_chat"] = [
+            {
+                "role": "assistant",
+                "content": "¡Hola! Soy tu Agente Cognitivo de Precios. Puedes pedirme proyecciones simuladas (ej: *'Simula 6 meses de Equipo 1 con shock de $20 en el insumo Z'*), preguntarme por la calidad matemática del modelo o pedirme que busque tendencias externas del sector para contextualizar.",
+            }
+        ]
+
+    # Mostrar mensajes del historial
+    for m in st.session_state["mensajes_chat"]:
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
+
+    # Capturar pregunta del usuario
+    if pregunta_usuario := st.chat_input("Escribe tu consulta estratégica..."):
+        st.session_state["mensajes_chat"].append(
+            {"role": "user", "content": pregunta_usuario}
+        )
+        with st.chat_message("user"):
+            st.markdown(pregunta_usuario)
+
+        with st.chat_message("assistant"):
+            # Intentar obtener la clave desde la configuración o el entorno
+            try:
+                from src.config import API_KEY as KEY_ACTIVA
+            except ImportError:
+                KEY_ACTIVA = os.getenv("API_KEY")
+
+            if not KEY_ACTIVA:
+                st.error(
+                    "❌ No se encontró la `API_KEY`. Verifica tu archivo `src/config.py` o tus variables de entorno."
+                )
+            else:
+                with st.spinner(
+                    "🤖 Percibiendo el entorno, ejecutando modelos e investigando mercado..."
+                ):
+                    try:
+                        from app.agent import crear_agente_mercado
+
+                        agente = crear_agente_mercado()
+                        res = agente.invoke({"messages": [("user", pregunta_usuario)]})
+                        respuesta_texto = res["messages"][-1].content
+
+                        st.markdown(respuesta_texto)
+                        st.session_state["mensajes_chat"].append(
+                            {"role": "assistant", "content": respuesta_texto}
+                        )
+                    except Exception as e:
+                        st.error(f"Error al procesar con el agente: {e}")

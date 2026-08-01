@@ -21,3 +21,5 @@ Thumbs.db
 *.log
 
 docs/*.pdf
+
+src/config.py
