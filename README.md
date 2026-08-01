@@ -141,3 +141,76 @@ Lo que nos dicen estas tablas es lo siguiente:
 - El cruce entre los tests de Causalidad de Granger, Criterios de Información (AIC/BIC) y Correlación Cruzada (CCF) reveló que los dos equipos operan (aparentemente) bajo modelos comerciales completamente opuestos.
 - El Precio_Equipo 1 absorbe los costos de las materias primas con un retraso de 1 a 3 meses (confirmado por un orden óptimo AIC $p=2$ en el sistema VAR y significancia en Granger hasta 6 meses). Sus variables predictoras clave son Price_Z y Price_X. El insumo Price_Y queda descartado al no presentar evidencia de causalidad ni correlación útil.
 El precio  del Equipo 2 reacciona en el exacto mismo mes en el que cambian los insumos ($Lag\ 0$). Por esta razón, el test de Granger tradicional no detecta causalidad en rezagos pasados ($p > 0.05$). Comparte una altísima correlación contemporánea en niveles ($r = 0.9874$) y en retornos ($r = 0.9552$) con Price_Z, complementada por Price_Y ($r = 0.9217$ en niveles).
+
+# Modelado y Predicción
+
+## Selección de modelos candidatos
+
+El entrenamiento de los modelos se realizó siguiendo los criterios que fueron mencionados en la sección de Metodología Analítica. Particularmente se seleccionaron 3 modelos:
+
+- Modelo de Regresión Ridge con penalización: La idea es correr un modelo ARDL con rezagos, pero encogiendo los coeficientes de los rezagos menos importantes. Hay que recordar que el modelo ARDL es muy adecuado cuando se conocer la relación "dependencia" de una serie con otra, cuando existe cointegración y cuando se tienen pocos datos. Estas condiciones se ajustan perfectamente al comportamiento de las series de este ejercicio.
+
+-ElasticNet: Es un modelo de regresión lineal regularizada que controla multicolinealidad entre rezagos mediante regularización L1 y L2 y combina las potencias y penalizaciones de la Regresión Ridge (es decir, encoge los coeficientes de las variables correlacionadas para que compartan el peso del impacto) y la Regresión Lasso (elimina los coeficientes de las variables menos importantes).
+
+- LightGBM: Es método no lineal basado en árboles que funciona de manera secuencial. Primero, entrena un árbol de decisión corto, evalúa los errores y luego entrena un segundo árbol diseñado específicamente para corregir los errores del primero, repitiendo este proceso varias veces hasta llegar a un punto de convergencia.
+
+Podrian incluirse un sinfin de modelos e incluso crear ensambles de ellos, pero a efectos prácticos y por razones de tiempo me he quedado con estos 3. Lo interesante es que los modelos vencedores para uno u otro equipo mostraron un desempeño superior.
+
+## Esquema de entrenamiento y validación
+
+Se buscó seguir al máximo las buenas prácticas de ingeniería de software para Ciencia de Datos. Toda la lógica matemática de transformación temporal (`src/features.py`), el motor de entrenamiento y la validación cruzada temporal y serialización (`src/pipeline.py`) se encuentran modularizados.
+Se construyeron los conjuntos de train/test en una relacion 70/30. Adicionalmente se realizó validación cruzada en tres rondas con la finalidad de evaluar los errores de estimación. 
+
+Durante la fase exploratoria inicial (**Notebook 01**), el análisis sobre **niveles absolutos de precios** ($I(1)$) sugirió una estructura dominada por rezagos largos ($p=2$), debido a la inercia y tendencia alcista acumulada de las series. 
+
+Sin embargo, al pasar a la fase de entrenamiento de los modelos, se identificaron dos retos críticos de modelado:**Riesgo de Correlación Espuria:** y **Efecto Sombra (*Phase Shift*)**. La forma como resolvimos esto fue la siguiente:
+
+1. Refactorización a Series Estacionarias $I(0)$ y Sincronización por Lag(0)
+
+- Error en niveles: Al trabajar con precios absolutos se generaron tendencias espurias y una fuerte inercia que obligaba al modelo a apoyarse en rezagos largos ($t-1, t-2$). Esto venia desde la fase de análisis.
+- El efecto sombra (Phase Shift): Visualmente se observaba un desfase de 1 a 2 meses en las predicciones, atenuando los picos reales del mercado, en particular del equipo 1. La razón es que el modelo intentaba predecir el hoy con el valor del mes anterior.
+
+2. Estacionarización en Primera Diferencia ($I(0)$)
+
+- Cambio de variable: Transformamos el objetivo y los insumos a variaciones mensuales en dólares ($\Delta P_t = P_t - P_{t-1}$). Eliminamos la tendencia no estacionaria y aislamos la velocidad real de transmisión de los costos, cumpliendo con los supuestos econométricos para regresiones estables.
+
+3. Inclusión del Lag(0)
+
+- Incorporamos el impacto contemporáneo de las materias primas en el mismo mes corriente ($t$). Basicamente es decirle al modelo que si hay un impacto hoy en los insumos, eso provocará un efecto inmediato en el equipo. Y esto nuevamente se sustenta en lo que dijimos previamente sobre el efecto pass-through en el sector industrial: los precios de los equipos reaccionan e indexan de forma inmediata ante shocks de insumos. Al darle al modelo visibilidad del mes actual ($t$) junto con los rezagos de soporte ($t-1, t-2$), eliminamos por completo el desfase temporal: el modelo ahora captura tanto la reacción instantánea como la inercia histórica.
+
+4. Reentrenamiento y Ajuste de Regularización y Optimización de hiperparámetros
+
+- Al pasar a diferencias, redujimos la penalización de los modelos lineales (ej. bajar el alpha en Ridge) para evitar la compresión de amplitud (shrinkage). Esto trajo como consecuencia que los modelos (Ridge/ElasticNet) aprendieron a replicar los picos extremos de $+100$ USD y $-150$ USD con una altísima precisión fuera de muestra (conjunto de entrenamiento 30%).
+
+5. Extensión a Producción (Simulación y Riesgo) 
+
+- Utilizando los deltas futuros y los sliders de shock, la app que se desarrolló simula mes a mes la evolución encadenada de los precios. Se cuantificó el riesgo financiero calculando la desviación estándar de los residuos fuera de muestra ($\sigma$) y propagando el error acumulativo ($\sigma \times \sqrt{h}$), generando bandas de confianza indispensables para la toma de decisiones.
+
+
+![Benchmark de modelos](docs/img/benchmark_resultados.png)
+
+
+![Modelos ajustados](docs/img/curvas_ajustadas.png)
+
+![MAPE](docs/img/mape.gif)
+
+La tabla anterior muestra el verdadero valor del MAPE. Se realizó un ajuste en el cálculo de MAPE usual para traducir las predicciones de "cambios mensuales" ($\Delta P$) de vuelta a "precios reales en dólares" ($P_t$) y asi, medir el error verdadero del negocio.
+
+El método que se siguió fue:
+
+- Buscar el precio real del equipo en el mes exactamente anterior al inicio del período de prueba.
+- Tomar los deltas predichos por el modelo ($\hat{\Delta P}_1, \hat{\Delta P}_2, \dots$) y aplicar la suma acumulada (np.cumsum) sumada al precio real.
+- La definición se encuentra en el notebook de entrenamiento.
+
+## Importancia de las variables
+
+De acuerdo con los resultados, las variables importantes para cada uno de los equipos se muestran a continuación. Puede verse por ejemplo que para el Equipo 2, Z_lag0 = 27.46 es el impacto del insumo Z en el mes actual ($t$). El comportamiento del Equipo 2 está sumamente amarrado a las fluctuaciones mes a mes del insumo Z. Para el caso de Eq2_lag1 que es la variación del propio Equipo 2 en el mes anterior ($t-1$). Se comporta como un componente Autorregresivo $AR(1)$) y mide la memoria del precio. Al tener un peso levemente negativo ($-0.022$), indica un pequeño efecto de autocorrección o rebote, es decir, si el mes pasado el precio subió muy fuerte, en el mes actual tiende a estabilizarse o corregir ligeramente a la baja.
+
+![Importancia de variables](docs/img/importancia_variables.png)
+
+
+![Importancia de variables](docs/img/tabla_importancia_variables.png)
+
+## Guardado de los modelos ganadores
+
+Para cada uno de los equipos se obtuvo un modelo ganador que se seleccionó a partir de valor MAPE mas pequeño. Todo el artefacto se guardó en el directorio de modelos\producción. Desde alli podrán ser invocados para su consumo, como por ejemplo en la aplicación desarrollada.
