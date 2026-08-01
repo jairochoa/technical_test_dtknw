@@ -24,8 +24,9 @@ GENERADORES_FEATURES = {
 }
 
 MODELOS_CANDIDATOS = {
-    "Ridge": Ridge(alpha=1.0),
-    "ElasticNet": ElasticNet(alpha=0.01, l1_ratio=0.5, random_state=42),
+    # Bajamos alpha de 1.0 a 0.1 para permitir mayor amplitud en los picos
+    "Ridge": Ridge(alpha=0.1),
+    "ElasticNet": ElasticNet(alpha=0.005, l1_ratio=0.7, random_state=42),
     "LightGBM": LGBMRegressor(
         n_estimators=100,
         learning_rate=0.05,

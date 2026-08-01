@@ -1,146 +1,311 @@
 import os
+from pathlib import Path
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from pathlib import Path
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DE LA PÁGINA Y CARGA DE ARTEFACTOS
+# 1. CONFIGURACIÓN DE LA PÁGINA Y RUTAS
 # ==============================================================================
 st.set_page_config(
-    page_title="Proyección de Precios - Maquinaria",
-    page_icon="🏗️",
-    layout="wide",
+    page_title="Simulador de Costos - Maquinaria", page_icon="🏗️", layout="wide"
 )
 
-st.title("🏗️ Sistema Inteligente de Proyección de Costos de Maquinaria")
+st.title("🏗️ Simulador Estratégico de Precios de Maquinaria")
 st.markdown(
-    "Herramienta analítica para estimar precios de maquinaria basada en insumos industriales y memoria temporal."
+    "Herramienta de pronóstico a n meses basada en modelos econométricos estacionarios $I(0)$ y análisis de sensibilidad por shocks de insumos."
 )
 
-
+# Rutas absolutas seguras con pathlib
 DIR_MODELS = Path(__file__).resolve().parent / "models" / "production"
+PATH_DATOS = Path(__file__).resolve().parent / "data" / "processed" / "df_mensual.parquet"
 
 
 @st.cache_resource
-def cargar_pipeline(target_name):
-    ruta = os.path.join(DIR_MODELS, f"pipeline_{target_name}.joblib")
-    if not os.path.exists(ruta):
+def cargar_recursos(target_name):
+    ruta_pipeline = DIR_MODELS / f"pipeline_{target_name}.joblib"
+    if not ruta_pipeline.exists():
         st.error(
-            f"❌ No se encontró el archivo de producción en: {ruta}. Ejecuta primero tu script de modelado."
+            f"❌ No se encontró el pipeline en: {ruta_pipeline}. Entrena los modelos primero."
         )
         st.stop()
-    return joblib.load(ruta)
+    paquete = joblib.load(ruta_pipeline)
+    df_base = pd.read_parquet(PATH_DATOS)
+    return paquete, df_base
 
 
 # ==============================================================================
-# 2. PANEL LATERAL (SELECTOR DE EQUIPO)
+# 2. PANEL LATERAL (CONFIGURACIÓN Y SHOCKS)
 # ==============================================================================
-st.sidebar.header("⚙️ Configuración del Pronóstico")
+st.sidebar.header("⚙️ Parámetros de Simulación")
 equipo_seleccionado = st.sidebar.selectbox(
-    "Selecciona el Equipo a Modelar:",
+    "Selecciona el Equipo a Simular:",
     options=["Price_Equipo1", "Price_Equipo2"],
     index=0,
 )
 
-paquete = cargar_pipeline(equipo_seleccionado)
-st.sidebar.success(f"Modelo Cargado: **{paquete['modelo_nombre']}**")
-st.sidebar.info(
-    f"Precisión Histórica (MAPE): **{paquete['metricas_test']['MAPE (%)']:.2f}%**"
+paquete, df_mensual = cargar_recursos(equipo_seleccionado)
+
+st.sidebar.success(f"Modelo Activo: **{paquete['modelo_nombre']}**")
+st.sidebar.markdown("---")
+
+horizonte = st.sidebar.slider(
+    "Horizonte de Proyección (Meses)",
+    min_value=1,
+    max_value=12,
+    value=6,  # Valor por defecto
+    step=1,
 )
+
+st.sidebar.markdown("---")
+
+st.sidebar.subheader("🎚️ Sliders de Shock de Insumos (Horizonte n Meses)")
+st.sidebar.markdown(
+    "Ajusta el impulso mensual adicional (en USD) para cada materia prima:"
+)
+
+# Definir qué insumos aplican según el equipo
+if equipo_seleccionado == "Price_Equipo1":
+    shock_z = st.sidebar.slider(
+        "Shock Mensual Materia Prima Z ($)",
+        min_value=-50.0,
+        max_value=50.0,
+        value=0.0,
+        step=5.0,
+    )
+    shock_x = st.sidebar.slider(
+        "Shock Mensual Insumo X ($)",
+        min_value=-50.0,
+        max_value=50.0,
+        value=0.0,
+        step=5.0,
+    )
+    shock_y = 0.0
+else:
+    shock_z = st.sidebar.slider(
+        "Shock Mensual Materia Prima Z ($)",
+        min_value=-50.0,
+        max_value=50.0,
+        value=0.0,
+        step=5.0,
+    )
+    shock_y = st.sidebar.slider(
+        "Shock Mensual Insumo Y ($)",
+        min_value=-50.0,
+        max_value=50.0,
+        value=0.0,
+        step=5.0,
+    )
+    shock_x = 0.0
 
 # ==============================================================================
 # 3. INTERFAZ EN PESTAÑAS (TABS)
 # ==============================================================================
-tab_pronostico, tab_auditoria, tab_ia = st.tabs(
-    ["📊 Pronosticador Interactivo", "🔍 Explicabilidad y Coeficientes", "🤖 Asistente IA"]
+tab_simulador, tab_auditoria = st.tabs(
+    ["📈 Simulador de Escenarios (varios meses)", "🔍 Auditoría y Coeficientes"]
 )
 
 # ------------------------------------------------------------------------------
-# TAB 1: PRONOSTICADOR
+# TAB 1: SIMULADOR RECURSIVO A N MESES CON BANDAS DE CONFIANZA
 # ------------------------------------------------------------------------------
-with tab_pronostico:
-    st.subheader(f"Estimación en Dólares para: {equipo_seleccionado}")
+with tab_simulador:
+    st.subheader(f"Proyección Semestral y Banda de Riesgo: {equipo_seleccionado}")
     st.markdown(
-        "Modifica los valores de las variables (en USD reales) para generar una proyección al instante:"
+        "Simulación recursiva a n meses con **Intervalo de Confianza (95%)** basado en la volatilidad de los residuos fuera de muestra."
     )
 
-    # Tomamos el último valor conocido como valor por defecto para no empezar de cero
-    ejemplo_input = paquete["X_test"].iloc[[-1]].copy()
-    defaults_usd = pd.DataFrame(
-        paquete["scaler_obj"].inverse_transform(ejemplo_input),
-        columns=ejemplo_input.columns,
-    ).iloc[0]
+    df_hist = df_mensual.copy()
+    ultimo_precio_nivel = df_hist[equipo_seleccionado].iloc[-1]
+    fechas_futuras = pd.date_range(
+        start=df_hist.index[-1] + pd.DateOffset(months=1),
+        periods=horizonte,
+        freq="MS",
+    )
 
-    cols = st.columns(2)
-    inputs_usuario = {}
+    # Calcular la desviación estándar de los residuos en Test para estimar el error
+    residuos_test = paquete["y_test"] - paquete["preds_test"]
+    sigma_error = np.std(residuos_test)
 
-    for idx, feature in enumerate(paquete["feature_names"]):
-        col_actual = cols[idx % 2]
-        val_default = float(defaults_usd[feature])
-        inputs_usuario[feature] = col_actual.number_input(
-            label=f"Variable: `{feature}` ($)",
-            value=round(val_default, 2),
-            step=10.0,
-            format="%.2f",
-        )
 
+    def ejecutar_simulacion_con_incertidumbre(s_z, s_x, s_y):
+        simulacion_deltas = []
+        df_temp = df_hist.copy()
+
+        for step in range(horizonte):
+            d_z_val = df_temp["Price_Z"].diff().iloc[-1] + s_z
+            d_x_val = df_temp["Price_X"].diff().iloc[-1] + s_x
+            d_y_val = df_temp["Price_Y"].diff().iloc[-1] + s_y
+
+            if step == 0:
+                last_delta_eq = df_hist[equipo_seleccionado].diff().iloc[-1]
+            else:
+                last_delta_eq = simulacion_deltas[-1]
+
+            fila_features = {}
+            for feat in paquete["feature_names"]:
+                if feat == "Z_lag0":
+                    fila_features[feat] = d_z_val
+                elif feat == "X_lag0":
+                    fila_features[feat] = d_x_val
+                elif feat == "Y_lag0":
+                    fila_features[feat] = d_y_val
+                elif feat == "Z_lag1":
+                    fila_features[feat] = df_temp["Price_Z"].diff().iloc[-1]
+                elif feat == "Z_lag2":
+                    fila_features[feat] = df_temp["Price_Z"].diff().iloc[-2]
+                elif feat == "X_lag1":
+                    fila_features[feat] = df_temp["Price_X"].diff().iloc[-1]
+                elif feat == "X_lag2":
+                    fila_features[feat] = df_temp["Price_X"].diff().iloc[-2]
+                elif "lag1" in feat and ("Equipo" in feat or "Eq" in feat):
+                    fila_features[feat] = last_delta_eq
+                else:
+                    fila_features[feat] = 0.0
+
+            X_step = pd.DataFrame([fila_features])[paquete["feature_names"]]
+            X_step_scaled = pd.DataFrame(
+                paquete["scaler_obj"].transform(X_step), columns=X_step.columns
+            )
+
+            delta_pred = paquete["modelo_obj"].predict(X_step_scaled)[0]
+            simulacion_deltas.append(delta_pred)
+
+            nuevo_idx = df_temp.index[-1] + pd.DateOffset(months=1)
+            nuevo_z = df_temp["Price_Z"].iloc[-1] + d_z_val
+            nuevo_x = df_temp["Price_X"].iloc[-1] + d_x_val
+            nuevo_y = df_temp["Price_Y"].iloc[-1] + d_y_val
+            nuevo_eq = df_temp[equipo_seleccionado].iloc[-1] + delta_pred
+
+            nueva_fila = pd.DataFrame(
+                {
+                    "Price_Z": [nuevo_z],
+                    "Price_X": [nuevo_x],
+                    "Price_Y": [nuevo_y],
+                    equipo_seleccionado: [nuevo_eq],
+                },
+                index=[nuevo_idx],
+            )
+            df_temp = pd.concat([df_temp, nueva_fila])
+
+        deltas_arr = np.array(simulacion_deltas)
+        niveles = ultimo_precio_nivel + np.cumsum(deltas_arr)
+
+        # Banda de error acumulativa (crece con la raíz cuadrada del paso temporal h)
+        pasos = np.arange(1, horizonte + 1)
+        margen_error = 1.96 * sigma_error * np.sqrt(pasos)
+
+        limite_superior = niveles + margen_error
+        limite_inferior = niveles - margen_error
+
+        return niveles, limite_inferior, limite_superior
+
+
+    # Ejecutar simulaciones
+    niveles_base, _, _ = ejecutar_simulacion_con_incertidumbre(0.0, 0.0, 0.0)
+    niveles_shock, inf_shock, sup_shock = ejecutar_simulacion_con_incertidumbre(
+        shock_z, shock_x, shock_y
+    )
+
+    # Gráfico con bandas de confianza
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+
+    hist_reciente = df_hist[equipo_seleccionado].iloc[-6:]
+    ax.plot(
+        hist_reciente.index,
+        hist_reciente,
+        label="Histórico Real ($)",
+        color="black",
+        marker="o",
+        linewidth=2,
+    )
+    ax.plot(
+        fechas_futuras,
+        niveles_base,
+        label="Escenario Base (Inercial)",
+        color="gray",
+        linestyle="--",
+        marker="s",
+        linewidth=2,
+    )
+    ax.plot(
+        fechas_futuras,
+        niveles_shock,
+        label="Escenario con Shock (Esperado)",
+        color="#1f77b4",
+        linestyle="-",
+        marker="o",
+        linewidth=2.5,
+    )
+
+    # Pintar el cono de incertidumbre (Banda de Confianza 95%)
+    ax.fill_between(
+        fechas_futuras,
+        inf_shock,
+        sup_shock,
+        color="#1f77b4",
+        alpha=0.2,
+        label="Banda de Confianza (95%)",
+    )
+
+    ax.set_title(
+        f"Simulación de Precios con Cono de Riesgo - {equipo_seleccionado}",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.set_ylabel("Precio Proyectado ($ USD)")
+    ax.grid(True, linestyle=":", alpha=0.6)
+    ax.legend(frameon=True, loc="upper left")
+    st.pyplot(fig)
+
+    # Tabla resumen ampliada con los límites de riesgo
     st.markdown("---")
-    if st.button("🚀 Ejecutar Proyección de Precio", type="primary"):
-        # Envolver en DataFrame para evitar UserWarnings de scikit-learn
-        df_in = pd.DataFrame([inputs_usuario], columns=paquete["feature_names"])
-        input_scaled = pd.DataFrame(
-            paquete["scaler_obj"].transform(df_in), columns=df_in.columns
-        )
-        prediccion_usd = paquete["modelo_obj"].predict(input_scaled)[0]
-
-        res_col1, res_col2 = st.columns([1, 2])
-        with res_col1:
-            st.metric(
-                label="Precio Proyectado (USD)",
-                value=f"${prediccion_usd:,.2f}",
-                delta=f"Margen MAPE: {paquete['metricas_test']['MAPE (%)']:.2f}%",
-            )
-        with res_col2:
-            st.success(
-                f"**Pronóstico generado con éxito** utilizando regularización **{paquete['modelo_nombre']}** sobre datos estandarizados."
-            )
+    st.subheader(
+        "📋 Resumen Financiero y Límites de Exposición (Escenario con Shock)"
+    )
+    df_resumen = pd.DataFrame(
+        {
+            "Mes Proyectado": fechas_futuras.strftime("%Y-%m"),
+            "Base ($)": np.round(niveles_base, 2),
+            "Shock Esperado ($)": np.round(niveles_shock, 2),
+            "Límite Inferior 95% ($)": np.round(inf_shock, 2),
+            "Límite Superior 95% ($)": np.round(sup_shock, 2),
+            "Impacto Máx. Riesgo ($)": np.round(sup_shock - niveles_base, 2),
+        }
+    )
+    st.dataframe(df_resumen, use_container_width=True)
 
 # ------------------------------------------------------------------------------
 # TAB 2: AUDITORÍA Y COEFICIENTES
 # ------------------------------------------------------------------------------
 with tab_auditoria:
-    st.subheader("Auditoría Técnica del Modelo y Motores del Precio")
+    st.subheader("Auditoría del Modelo y Explicabilidad")
+    col_g, col_c = st.columns([3, 2])
 
-    col_grafico, col_coefs = st.columns([3, 2])
-
-    with col_grafico:
-        st.markdown("**1. Desempeño en el Examen Final (Holdout 30%):**")
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(
+    with col_g:
+        st.markdown("**Desempeño en Conjunto Test (30%):**")
+        fig2, ax2 = plt.subplots(figsize=(8, 4))
+        ax2.plot(
             paquete["y_test"].index,
             paquete["y_test"],
-            label="Real ($)",
+            label="Real Δ ($)",
             color="black",
-            linewidth=2,
         )
-        ax.plot(
+        ax2.plot(
             paquete["y_test"].index,
             paquete["preds_test"],
-            label=f"Predicción ({paquete['modelo_nombre']})",
-            color="#1f77b4",
+            label=f"Predicción [{paquete['modelo_nombre']}]",
+            color="#2ca02c",
             linestyle="--",
-            linewidth=2,
         )
-        ax.set_ylabel("Precio ($)")
-        ax.grid(True, linestyle=":", alpha=0.6)
-        ax.legend()
-        st.pyplot(fig)
+        ax2.set_ylabel("Variación Mensual Δ ($)")
+        ax2.grid(True, linestyle=":", alpha=0.6)
+        ax2.legend()
+        st.pyplot(fig2)
 
-    with col_coefs:
-        st.markdown("**2. Importancia de Variables (Pesos del Modelo):**")
+    with col_c:
+        st.markdown("**Pesos del Modelo (Coeficientes):**")
         modelo = paquete["modelo_obj"]
         if hasattr(modelo, "coef_"):
             pesos = pd.Series(
@@ -155,15 +320,5 @@ with tab_auditoria:
                 modelo.feature_importances_, index=paquete["feature_names"]
             ).sort_values(ascending=False)
             st.dataframe(
-                pesos.to_frame(name="Importancia (Gini)"),
-                use_container_width=True,
+                pesos.to_frame(name="Importancia"), use_container_width=True
             )
-
-# ------------------------------------------------------------------------------
-# TAB 3: ASISTENTE IA (LISTO PARA EL SIGUIENTE PASO)
-# ------------------------------------------------------------------------------
-with tab_ia:
-    st.subheader("🤖 Asistente Virtual Inteligente")
-    st.info(
-        "En el próximo paso conectaremos aquí a nuestro Agente para que analice escenarios conversacionales usando el contexto del modelo."
-    )
