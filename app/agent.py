@@ -56,6 +56,8 @@ def tool_simular_pronostico(
     """Ejecuta una simulación econométrica recursiva I(0) a 'meses' meses hacia el futuro
     para el equipo indicado ('Price_Equipo1' o 'Price_Equipo2'), aplicando shocks en USD
     a los insumos. Retorna los precios esperados y el intervalo de confianza al 95%.
+    
+   
     """
     paquete = _cargar_paquete(equipo)
     df_hist = pd.read_parquet(PATH_DATOS)
